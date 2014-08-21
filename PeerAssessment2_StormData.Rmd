@@ -1,20 +1,68 @@
 ---
-title: "PA2_StoreData"
 output: html_document
 ---
+# What Severe Weather Events have caused the Greatest Population Health and Economic Consequences in the U.S.
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+##Synopsis:
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+By using the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. Can have determined most  
+
+#Complete section
+
+##Data Processing:
+
+###Data
+
+The data for this assignment come in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. You can download the file from the course web site:
+
+[Storm Data][1] [47Mb]
+[1]: https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2 "Storm Data"
+
+There is also some documentation of the database available. Here you will find how some of the variables are constructed/defined.
+
+National Weather Service [Storm Data Documentation]{https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf}
+
+National Climatic Data Center Storm Events [FAQ]{https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf}
+
+The events in the database start in the year 1950 and end in November 2011. In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. More recent years should be considered more complete.
+
+###Loading Data
+```{r init, results='hide', cache=TRUE }
+     
+fileURL <- "https://github.com/aisley/RepData_PeerAssessment2/blob/master/Data/repdata-data-StormData.csv.bz2"
+
+SourceFile <- "repdata-data-StormData.csv.bz2"
+fileDir <- "Data"
+
+#Check if Data Dir exists adn create if not
+if(!file.exists(fileDir)) {
+     dir.create(fileDir)
+}
+
+#Get the Data dir to place the files
+DataFileDir <- paste(getwd(), fileDir, sep="/")
+
+zipFile <- paste(DataFileDir, SourceFile, sep="/")
+if(!file.exists(zipFile)) 
+     {
+          download.file(fileURL, destfile=SourceFile)
+     } else {
+          NOAAStormDataRaw <- read.csv(zipFile)
+     }
+
+
+```
+
+Lets take a look at a sample of the data that was loaded.
 
 ```{r}
-summary(cars)
+str(NOAAStormDataRaw)
+head(NOAAStormDataRaw)
 ```
+The Storm data set consisted of `r nrow(NOAAStormDataRaw)` rows and `r ncol(NOAAStormDataRaw)` columns. 
 
-You can also embed plots, for example:
+The column names are **`r names(NOAAStormDataRaw)`** and their respective class are **`r sapply(NOAAStormDataRaw, class)`**.  The date column needs to have it data type corrected from factor to date.
 
-```{r, echo=FALSE}
-plot(cars)
-```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
