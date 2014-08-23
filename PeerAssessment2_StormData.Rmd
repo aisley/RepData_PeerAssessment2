@@ -6,9 +6,10 @@ output: html_document
 ##Synopsis:
 Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
 
-By using the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. Can have determined most  
+By using the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. Can have determined most danagerous adn costly weather events.   
 
-#Complete section
+Based on our research, "Heat Waves" have the highest Average injury/Fatality rate of all weather related events followed by "Tropical Storms"
+Based on our research, "Tornadoes, TSTM Winds, Hail" have the highest Average Cost per event of all weather related events, followed by "Heavy Rain\Severe Weather"
 
 ##Data Processing:
 
@@ -48,7 +49,7 @@ if(!file.exists(zipFile))
      {
           download.file(fileURL, destfile=SourceFile)
      } else {
-          NOAAStormDataRaw <- read.csv(zipFile)
+          NOAAStormDataRaw <- read.csv(zipFile, header=TRUE)
      }
 
 
@@ -58,11 +59,93 @@ Lets take a look at a sample of the data that was loaded.
 
 ```{r}
 str(NOAAStormDataRaw)
-head(NOAAStormDataRaw)
 ```
 The Storm data set consisted of `r nrow(NOAAStormDataRaw)` rows and `r ncol(NOAAStormDataRaw)` columns. 
 
-The column names are **`r names(NOAAStormDataRaw)`** and their respective class are **`r sapply(NOAAStormDataRaw, class)`**.  The date column needs to have it data type corrected from factor to date.
+###Data Cleansing
+We need to clean up the data set to make it usable.  The steps are as follows:
+
+1. Converrt the BGN_DAte to a date format
+2. Trim down the data set to only to columns necessary for our analysis.  
+     + eventType - EVTYPE
+     + PersonalInjuries - Number of FATALITIES + INJURIES by event
+     + propertyDamage - multiply PROPDMG + CROPDMG by the appropriate multiplier of K, M, B.
+
+     
+The data has several values out side of the range (B, M, K).  All other values will be multipled by 1.
+
+```{r}
+NOAAStormDataRaw$BGN_DATE<-as.Date(as.character(NOAAStormDataRaw$BGN_DATE), "%m/%d/%Y")
+
+convertDMGAmt <- function(dmg, multiplier) {
+    if (toupper(multiplier) == "K"){
+        as.numeric(dmg)*1000
+    }
+    else if (toupper(multiplier) == "M") {
+        as.numeric(dmg)*1000000
+    }
+    else if (toupper(multiplier) == "B") {
+      as.numeric(dmg)*1000000000
+    }
+    else {
+        as.numeric(dmg)
+    }
+}
 
 
+propDmg <- apply(NOAAStormDataRaw[, c('PROPDMG', 'PROPDMGEXP')], 1, function(y) convertDMGAmt(y['PROPDMG'], y['PROPDMGEXP']))
+cropDmg <- apply(NOAAStormDataRaw[, c('CROPDMG', 'CROPDMGEXP')], 1, function(y) convertDMGAmt(y['CROPDMG'], y['CROPDMGEXP']))
 
+#trim down the data set
+NOAAStormData <- data.frame(
+     eventType=NOAAStormDataRaw$EVTYPE,
+     PersonalInjuries=NOAAStormDataRaw$FATALITIES + NOAAStormDataRaw$INJURIES, 
+     propertyDamage=propDmg + cropDmg)
+
+```
+
+##Results:
+###Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+By taking the mean of each event, we can see by event the mean number of injuries/fatalities that occur.
+
+```{r}
+
+library(plyr)
+PersonalInjuries_mean <-ddply(NOAAStormData, .(eventType), summarize, mean_value = mean(PersonalInjuries))
+
+PersonalInjuries_mean_10 <- head(PersonalInjuries_mean[order(PersonalInjuries_mean$mean_value, decreasing=TRUE),], n=10)
+
+#Plot the top 10 values by event type
+library(ggplot2)
+p <- ggplot(PersonalInjuries_mean_10 , aes(x=eventType, y=mean_value)) 
+p <- p + geom_histogram(stat="identity", binwidth=1000, color=rainbow(10), fill=rainbow(10)) 
+p <- p + xlab("Event") 
+p <- p + ylab("Number of Injuries/Fatalities") 
+p <- p + ggtitle("Mean Injuries/Fatalities by Weather Type") 
+p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+# add a mean line to the hist
+p 
+```
+
+Based on our data, Heat Waves have the highest Average injury/Fatality rate of all weather related events.
+
+###Across the United States, which types of events have the greatest economic consequences?
+```{r}
+PropertyDamage_mean <-ddply(NOAAStormData, .(eventType), summarize, mean_value = mean(propertyDamage))
+
+PropertyDamage_mean_10 <- head(PropertyDamage_mean[order(PropertyDamage_mean$mean_value, decreasing=TRUE),], n=10)
+
+#Plot the top 10 values by event type
+
+p <- ggplot(PropertyDamage_mean_10 , aes(x=eventType, y=mean_value)) 
+p <- p + geom_histogram(stat="identity", binwidth=1000, color=rainbow(10), fill=rainbow(10)) 
+p <- p + xlab("Event") 
+p <- p + ylab("$ per event") 
+p <- p + ggtitle("Mean Cost of PropertyDamage by Weather Type") 
+p <- p + theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+# add a mean line to the hist
+p 
+```
+
+Based on our data, Tornadoes, TSTM Winds, Hail have the highest Average Cost per event of all weather related events.
